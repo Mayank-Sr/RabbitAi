@@ -1,0 +1,143 @@
+openapi: 3.0.3
+info:
+  title: Sales Insight Automator API
+  description: |
+    AI-powered sales data analysis API for Rabbitt AI.
+    Upload a CSV or Excel file and receive an AI-generated executive summary delivered to your inbox.
+    ## Authentication
+    Protected endpoints require an X-API-Key header when INTERNAL_API_KEY is configured.
+    ## Rate Limiting
+    - Global: 100 requests per 15 minutes per IP
+    - Upload endpoint: 10 requests per minute per IP
+  version: 1.0.0
+servers:
+  - url: http://localhost:3001
+    description: Local development
+  - url: https://your-backend.onrender.com
+    description: Production (Render)
+tags:
+  - name: Analysis
+    description: File upload and AI summary generation
+  - name: Health
+    description: Service health checks
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Service health check
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /api/analyze:
+    post:
+      tags: [Analysis]
+      summary: Analyze sales data and email summary
+      description: Accepts a CSV or Excel file, generates an AI-powered executive summary using Google Gemini, and delivers it to the specified email address.
+      operationId: analyzeSalesData
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, email]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: CSV or Excel file with sales data (max 5MB, max 10000 rows)
+                email:
+                  type: string
+                  format: email
+                  example: exec@company.com
+      responses:
+        '200':
+          description: Summary generated and email sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyzeSuccess'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: File too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Optional API key (required when INTERNAL_API_KEY env var is set)
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        service:
+          type: string
+        version:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        environment:
+          type: string
+    AnalyzeSuccess:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        meta:
+          type: object
+          properties:
+            filename:
+              type: string
+            rowsProcessed:
+              type: integer
+            messageId:
+              type: string
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
